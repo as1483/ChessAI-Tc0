@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chess AI Game</title>
+    <title>Play Chess AI Tc0</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
     <style>
         body {
@@ -59,7 +59,28 @@
         .thinking {
             animation: pulse 1.5s infinite;
         }
+        #copy-pgn-btn {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+            display: none;
+        }
 
+        #copy-pgn-btn:hover {
+            background-color: #1976D2;
+        }
+
+        #pgn-copied {
+            color: green;
+            margin-top: 10px;
+            display: none;
+            font-size: 14px;
+        }
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -69,11 +90,13 @@
 </head>
 <body>
     <div id="game-container">
-        <h1>Chess AI Game</h1>
+        <h1>Play AI</h1>
         <div id="status">Your turn! Play as White</div>
         <div id="move-info"></div>
         <div id="board"></div>
         <button id="new-game-btn">New Game</button>
+        <button id="copy-pgn-btn">Copy PGN</button>
+        <div id="pgn-copied">PGN copied to clipboard!</div>
     </div>
 
     <!-- Load dependencies -->
@@ -310,6 +333,8 @@
         
         function updateStatus() {
             let status = '';
+            const $copyPgnBtn = $('#copy-pgn-btn');
+            const isGameOver = game.isGameOver();
             
             if (game.isCheckmate()) {
                 status = 'Game over, ' + (game.turn() === 'w' ? 'black' : 'white') + ' wins by checkmate!';
@@ -323,8 +348,48 @@
             }
             
             $status.html(status);
+            
+            // Show/hide PGN button based on game state
+            $copyPgnBtn.css('display', isGameOver ? 'inline-block' : 'none');
         }
-        
+        function copyPGN() {
+            const pgn = game.pgn();
+            const $pgnCopied = $('#pgn-copied');
+            
+            // Use modern clipboard API with fallback
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pgn).then(() => {
+                    $pgnCopied.show().delay(2000).fadeOut();
+                }).catch(err => {
+                    console.error('Failed to copy PGN:', err);
+                    fallbackCopyPGN(pgn);
+                });
+            } else {
+                fallbackCopyPGN(pgn);
+            }
+        }
+
+        function fallbackCopyPGN(text) {
+            const $pgnCopied = $('#pgn-copied');
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                $pgnCopied.show().delay(2000).fadeOut();
+            } catch (err) {
+                console.error('Fallback: Failed to copy PGN:', err);
+                alert('Failed to copy PGN. Your browser may not support this feature.');
+            }
+            
+            document.body.removeChild(textArea);
+        }
         function newGame() {
             game = new Chess();
             board.position('start');
@@ -354,6 +419,8 @@
 
         // Add event listener for new game button
         document.getElementById('new-game-btn').addEventListener('click', newGame);
+        // Add event listener for copy PGN button
+        document.getElementById('copy-pgn-btn').addEventListener('click', copyPGN);
     </script>
 </body>
 </html>
