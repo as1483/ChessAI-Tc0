@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chess AI Game</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+        
+        #game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        #board {
+            width: 500px;
+            margin: 20px 0;
+        }
+        
+        #status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #e8e8e8;
+            text-align: center;
+        }
+        
+        #move-info {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            text-align: center;
+            font-family: monospace;
+        }
+        
+        #new-game-btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        #new-game-btn:hover {
+            background-color: #45a049;
+        }
+
+        .thinking {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Chess AI Game</h1>
+        <div id="status">Your turn! Play as White</div>
+        <div id="move-info"></div>
+        <div id="board"></div>
+        <button id="new-game-btn">New Game</button>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.16.3/ort.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    
+    <script type="module">
+        import { Chess } from 'https://unpkg.com/chess.js@1.0.0-beta.8/dist/esm/chess.js';
+
+        let board = null;
+        let game = new Chess();
+        let moveMapping = null;
+        const $status = $('#status');
+        const $moveInfo = $('#move-info');
+        
+        // Load move mapping JSON
+        async function loadMoveMapping() {
+            try {
+                const response = await fetch('move_mapping.json');
+                moveMapping = await response.json();
+                // Invert the mapping since we want index -> move
+                moveMapping = Object.fromEntries(
+                    Object.entries(moveMapping).map(([move, index]) => [index, move])
+                );
+            } catch (error) {
+                console.error('Error loading move mapping:', error);
+                $status.html('Error loading move mapping. Please ensure move_mapping.json is available.');
+            }
+        }
+
+        // Load move mapping when page loads
+        await loadMoveMapping();
+
+        function onDragStart(source, piece, position, orientation) {
+            if (game.isGameOver()) return false;
+            if (piece.search(/^b/) !== -1) return false;
+            if (game.turn() === 'b') return false;
+        }
+        
+        function onDrop(source, target) {
+            const move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+            
+            if (move === null) return 'snapback';
+            
+            board.position(game.fen());
+            updateStatus();
+            
+            // After player's move, trigger AI move
+            if (!game.isGameOver()) {
+                setTimeout(makeAIMove, 250);
+            }
+        }
+        
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+        
+        function formatMove(moveStr) {
+            const promotionPieces = {
+                'n': ' (Knight)',
+                'b': ' (Bishop)',
+                'r': ' (Rook)',
+                'q': ' (Queen)'
+            };
+
+            if (moveStr.length === 5) {
+                const promotion = promotionPieces[moveStr[4]] || '';
+                const baseMove = `${moveStr.slice(0, 2)} -> ${moveStr.slice(2, 4)}`;
+                return baseMove + promotion;
+            }
+            
+            return `${moveStr.slice(0, 2)} -> ${moveStr.slice(2, 4)}`;
+        }
+
+        function boardToMatrix(chess) {
+            const matrix = new Float32Array(15 * 8 * 8);
+            matrix.fill(0);
+
+            const pieceValues = {
+                'p': 1.0,
+                'n': 3.0,
+                'b': 3.0,
+                'r': 5.0,
+                'q': 9.0,
+                'k': 0.0
+            };
+
+            const getIndex = (channel, row, col) => channel * 64 + (7 - row) * 8 + col;
+            
+            const pieceToChannel = (piece) => {
+                const pieceTypeMap = { 'p': 0, 'n': 1, 'b': 2, 'r': 3, 'q': 4, 'k': 5 };
+                return pieceTypeMap[piece.toLowerCase()];
+            };
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = coordsToSquare(row, col);
+                    const piece = chess.get(square);
+                    
+                    if (piece) {
+                        const baseChannel = piece.color === 'w' ? 0 : 6;
+                        const pieceChannel = baseChannel + pieceToChannel(piece.type);
+                        const pieceValue = pieceValues[piece.type.toLowerCase()];
+                        
+                        matrix[getIndex(pieceChannel, row, col)] = pieceValue;
+
+                        for (let attackRow = 0; attackRow < 8; attackRow++) {
+                            for (let attackCol = 0; attackCol < 8; attackCol++) {
+                                const attackSquare = coordsToSquare(attackRow, attackCol);
+                                const attacks = chess.isAttacked(attackSquare, piece.color === 'w' ? 'b' : 'w');
+                                if (attacks) {
+                                    const attackChannel = piece.color === 'w' ? 14 : 13;
+                                    matrix[getIndex(attackChannel, attackRow, attackCol)] = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            const moves = chess.moves({ verbose: true });
+            for (const move of moves) {
+                const [row_to, col_to] = squareToCoords(move.to);
+                
+                let weight = 1.0;
+                
+                if (move.captured) {
+                    weight = pieceValues[move.captured] * 1.5;
+                }
+                
+                const tmpChess = new Chess(chess.fen());
+                tmpChess.move(move);
+                if (tmpChess.isCheck()) {
+                    weight *= 1.5;
+                }
+                
+                matrix[getIndex(12, row_to, col_to)] = weight;
+            }
+
+            return matrix;
+        }
+
+        function squareToCoords(square) {
+            const col = square.charCodeAt(0) - 'a'.charCodeAt(0);
+            const row = 7 - (square.charCodeAt(1) - '1'.charCodeAt(0));
+            return [row, col];
+        }
+
+        function coordsToSquare(row, col) {
+            const file = String.fromCharCode('a'.charCodeAt(0) + col);
+            const rank = String.fromCharCode('1'.charCodeAt(0) + (7 - row));
+            return file + rank;
+        }
+
+        async function getBestMove() {
+            try {
+                if (!moveMapping) {
+                    throw new Error('Move mapping not loaded');
+                }
+
+                const inputMatrix = boardToMatrix(game);
+                const inputTensor = new ort.Tensor('float32', inputMatrix, [1, 15, 8, 8]);
+                
+                const session = await ort.InferenceSession.create('chess_model.onnx');
+                const feeds = {};
+                feeds[session.inputNames[0]] = inputTensor;
+                const outputData = await session.run(feeds);
+                
+                const outputTensor = outputData[session.outputNames[0]];
+                const logits = outputTensor.data;
+
+                const maxLogit = Math.max(...logits);
+                const expLogits = logits.map(x => Math.exp(x - maxLogit));
+                const sumExp = expLogits.reduce((a, b) => a + b, 0);
+                const probabilities = expLogits.map(x => x / sumExp);
+
+                const indices = Array.from(logits.keys());
+                indices.sort((a, b) => probabilities[b] - probabilities[a]);
+
+                // Find the first legal move from the sorted predictions
+                const legalMoves = new Set(game.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || '')));
+                
+                for (const idx of indices) {
+                    const move = moveMapping[idx];
+                    if (move && legalMoves.has(move)) {
+                        return {
+                            move: move,
+                            probability: probabilities[idx]
+                        };
+                    }
+                }
+                
+                throw new Error('No legal moves found in model predictions');
+                
+            } catch (error) {
+                console.error('Error getting best move:', error);
+                throw error;
+            }
+        }
+
+        async function makeAIMove() {
+            if (game.isGameOver()) return;
+
+            try {
+                $status.html('AI is thinking...').addClass('thinking');
+                const { move, probability } = await getBestMove();
+                
+                // Format the move for display
+                const formattedMove = formatMove(move);
+                $moveInfo.html(`AI played: ${formattedMove} (confidence: ${(probability * 100).toFixed(1)}%)`);
+                
+                // Make the move
+                game.move({
+                    from: move.slice(0, 2),
+                    to: move.slice(2, 4),
+                    promotion: move.length === 5 ? move[4] : undefined
+                });
+                
+                board.position(game.fen());
+                updateStatus();
+                
+            } catch (error) {
+                console.error('Error making AI move:', error);
+                $status.html('Error making AI move: ' + error.message);
+            } finally {
+                $status.removeClass('thinking');
+            }
+        }
+        
+        function updateStatus() {
+            let status = '';
+            
+            if (game.isCheckmate()) {
+                status = 'Game over, ' + (game.turn() === 'w' ? 'black' : 'white') + ' wins by checkmate!';
+            } else if (game.isDraw()) {
+                status = 'Game over, drawn position';
+            } else {
+                status = (game.turn() === 'w' ? 'Your turn' : "AI's turn");
+                if (game.isCheck()) {
+                    status += ', ' + (game.turn() === 'w' ? 'You are' : 'AI is') + ' in check';
+                }
+            }
+            
+            $status.html(status);
+        }
+        
+        function newGame() {
+            game = new Chess();
+            board.position('start');
+            $moveInfo.html('');
+            updateStatus();
+        }
+        
+        // Initialize board with modified config
+        const config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+            moveSpeed: 200,
+            snapSpeed: 100,
+            trashSpeed: 100,
+            sparePieces: false,
+            showErrors: false,
+            appearSpeed: 0,
+            snapbackSpeed: 0
+        };
+        
+        // Create the board
+        board = Chessboard('board', config);
+        updateStatus();
+
+        // Add event listener for new game button
+        document.getElementById('new-game-btn').addEventListener('click', newGame);
+    </script>
+</body>
+</html>
