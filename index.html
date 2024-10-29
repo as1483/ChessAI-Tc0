@@ -1,23 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html data-theme="light">
 <head>
     <title>Play Chess AI Tc0</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
     <style>
+        /* Theme variables for light/dark mode */
+        :root[data-theme="light"] {
+            --bg-color: #f0f0f0;
+            --container-bg: white;
+            --text-color: #000000;
+            --status-bg: #e8e8e8;
+            --move-info-bg: #f8f9fa;
+            --shadow-color: rgba(0,0,0,0.1);
+            --board-border: #d3d3d3;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --container-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --status-bg: #3d3d3d;
+            --move-info-bg: #404040;
+            --shadow-color: rgba(0,0,0,0.3);
+            --board-border: #404040;
+        }
+
         body {
             font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #f0f0f0;
+            background-color: var(--bg-color);
             padding: 20px;
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         
         #game-container {
-            background-color: white;
+            background-color: var(--container-bg);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px var(--shadow-color);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
         
         #board {
@@ -29,17 +53,19 @@
             margin: 20px 0;
             padding: 10px;
             border-radius: 5px;
-            background-color: #e8e8e8;
+            background-color: var(--status-bg);
             text-align: center;
+            transition: background-color 0.3s ease;
         }
         
         #move-info {
             margin: 10px 0;
             padding: 10px;
             border-radius: 5px;
-            background-color: #f8f9fa;
+            background-color: var(--move-info-bg);
             text-align: center;
             font-family: monospace;
+            transition: background-color 0.3s ease;
         }
         
         #new-game-btn {
@@ -50,15 +76,36 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
+            transition: background-color 0.3s ease;
         }
         
         #new-game-btn:hover {
             background-color: #45a049;
         }
 
+        #theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            z-index: 1000;
+        }
+
+        #theme-toggle:hover {
+            background-color: #1976D2;
+        }
+
         .thinking {
             animation: pulse 1.5s infinite;
         }
+
         #copy-pgn-btn {
             padding: 10px 20px;
             background-color: #2196F3;
@@ -69,6 +116,7 @@
             font-size: 16px;
             margin-left: 10px;
             display: none;
+            transition: background-color 0.3s ease;
         }
 
         #copy-pgn-btn:hover {
@@ -76,11 +124,22 @@
         }
 
         #pgn-copied {
-            color: green;
+            color: #4CAF50;
             margin-top: 10px;
             display: none;
             font-size: 14px;
+            transition: color 0.3s ease;
         }
+
+        /* Dark mode specific overrides for chess pieces */
+        /* [data-theme="dark"] .white-1e1d7 {
+            background-color: #b0b0b0;
+        }
+        
+        [data-theme="dark"] .black-3c85d {
+            background-color: #404040;
+        } */
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -89,6 +148,7 @@
     </style>
 </head>
 <body>
+    <button id="theme-toggle">Toggle Dark Mode</button>
     <div id="game-container">
         <h1>Play AI</h1>
         <div id="status">Your turn! Play as White</div>
@@ -586,8 +646,32 @@
             $moveInfo.html('');
             updateStatus();
         }
+        // Add theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
         
-        // Initialize board with modified config
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        themeToggle.textContent = `Toggle ${savedTheme === 'light' ? 'Dark' : 'Light'} Mode`;
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            // Update theme
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update button text
+            themeToggle.textContent = `Toggle ${newTheme === 'light' ? 'Dark' : 'Light'} Mode`;
+            
+            // Force board redraw to update square colors
+            if (board) {
+                const currentPosition = board.position();
+                board.position(currentPosition, false);
+            }
+        });
+        // Modify the board initialization to use CSS variables for colors
         const config = {
             draggable: true,
             position: 'start',
@@ -602,6 +686,7 @@
             appearSpeed: 0,
             snapbackSpeed: 200
         };
+        
         
         // Create the board
         board = Chessboard('board', config);
