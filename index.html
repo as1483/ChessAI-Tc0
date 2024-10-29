@@ -273,6 +273,46 @@
                 }
 
                 const inputMatrix = boardToMatrix(game);
+                // Debug print matrix in console
+                for (let channel = 0; channel < 15; channel++) {
+                    console.log(`Channel ${channel}:`);
+                    let channelOutput = [];
+                    
+                    // Add opening bracket
+                    channelOutput.push('[');
+                    
+                    // Generate each row
+                    for (let row = 0; row < 8; row++) {
+                        let rowData = '[';
+                        for (let col = 0; col < 8; col++) {
+                            const value = inputMatrix[channel * 64 + row * 8 + col];
+                            rowData += value.toFixed(3) + '. ';
+                        }
+                        rowData = rowData.trim() + ']';
+                        
+                        // Add proper indentation for all rows except first
+                        if (row === 0) {
+                            channelOutput.push(rowData);
+                        } else {
+                            channelOutput.push(' ' + rowData);
+                        }
+                    }
+                    
+                    // Add closing bracket
+                    channelOutput.push(']');
+                    
+                    // Print the formatted channel data
+                    console.log(channelOutput.join('\n'));
+                    
+                    // Calculate and print statistics
+                    const channelData = Array.from(inputMatrix.slice(channel * 64, (channel + 1) * 64));
+                    const min = Math.min(...channelData);
+                    const max = Math.max(...channelData);
+                    const mean = channelData.reduce((a, b) => a + b) / channelData.length;
+                    
+                    console.log(`Channel ${channel} stats - Min: ${min.toFixed(2)}, Max: ${max.toFixed(2)}, Mean: ${mean.toFixed(2)}\n`);
+                }
+
                 const inputTensor = new ort.Tensor('float32', inputMatrix, [1, 15, 8, 8]);
                 
                 const session = await ort.InferenceSession.create('chess_model.onnx');
@@ -311,36 +351,176 @@
                 throw error;
             }
         }
+        // Add this function near the top of your script
+        function debugMatrix(matrix, label = '') {
+            console.group(`Matrix Debug ${label}`);
+            try {
+                // Verify matrix size
+                if (matrix.length !== 15 * 8 * 8) {
+                    console.error(`Invalid matrix size: ${matrix.length} (expected ${15 * 8 * 8})`);
+                    return;
+                }
 
+                // Print each channel's data
+                for (let channel = 0; channel < 15; channel++) {
+                    console.group(`Channel ${channel}`);
+                    
+                    // Calculate channel statistics
+                    const channelData = Array.from(matrix.slice(channel * 64, (channel + 1) * 64));
+                    const nonZeroCount = channelData.filter(x => x !== 0).length;
+                    const min = Math.min(...channelData);
+                    const max = Math.max(...channelData);
+                    const sum = channelData.reduce((a, b) => a + b, 0);
+                    
+                    console.log(`Stats - Min: ${min.toFixed(3)}, Max: ${max.toFixed(3)}, Sum: ${sum.toFixed(3)}, Non-zero: ${nonZeroCount}`);
+                    
+                    // Print channel matrix
+                    let output = '\n';
+                    for (let row = 0; row < 8; row++) {
+                        let rowData = '';
+                        for (let col = 0; col < 8; col++) {
+                            const value = matrix[channel * 64 + row * 8 + col];
+                            rowData += value.toFixed(3).padStart(8) + ' ';
+                        }
+                        output += rowData + '\n';
+                    }
+                    console.log(output);
+                    console.groupEnd();
+                }
+            } catch (error) {
+                console.error('Error in debugMatrix:', error);
+            }
+            console.groupEnd();
+        }
         async function makeAIMove() {
             if (game.isGameOver()) return;
 
             try {
                 $status.html('AI is thinking...').addClass('thinking');
-                const { move, probability } = await getBestMove();
                 
-                // Format the move for display
-                const formattedMove = formatMove(move);
-                $moveInfo.html(`AI played: ${formattedMove} (confidence: ${(probability * 100).toFixed(1)}%)`);
+                // Debug current game state and memory
+                console.group('AI Move Debug');
+                console.log('Current FEN:', game.fen());
+                console.log('Memory usage:', performance.memory ? {
+                    heapSize: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) + 'MB',
+                    heapUsed: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB',
+                    heapLimit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
+                } : 'Not available');
                 
-                // Make the move
-                game.move({
-                    from: move.slice(0, 2),
-                    to: move.slice(2, 4),
-                    promotion: move.length === 5 ? move[4] : undefined
+                // Generate input matrix
+                const inputMatrix = boardToMatrix(game);
+                console.log('Matrix generated, size:', inputMatrix.length);
+                
+                // Create tensor with explicit bounds checking
+                if (inputMatrix.length !== 15 * 8 * 8) {
+                    throw new Error(`Invalid matrix size: ${inputMatrix.length}`);
+                }
+                
+                const inputTensor = new ort.Tensor('float32', inputMatrix, [1, 15, 8, 8]);
+                console.log('Input tensor created:', {
+                    dims: inputTensor.dims,
+                    type: inputTensor.type,
+                    size: inputTensor.data.length
                 });
+                
+                // Create a new session for each move
+                console.log('Creating new ONNX session...');
+                const session = await ort.InferenceSession.create('chess_model.onnx');
+                console.log('Session created with inputs:', session.inputNames);
+                
+                // Prepare feeds with validation
+                const feeds = {};
+                if (!session.inputNames.includes('input')) {
+                    throw new Error('Model missing expected input name "input"');
+                }
+                feeds[session.inputNames[0]] = inputTensor;
+                
+                // Run inference with error boundary
+                console.log('Running inference...');
+                const outputData = await session.run(feeds);
+                
+                // Validate output
+                const outputTensor = outputData[session.outputNames[0]];
+                if (!outputTensor || !outputTensor.data) {
+                    throw new Error('Invalid output tensor');
+                }
+                
+                const logits = outputTensor.data;
+                console.log('Inference complete, output size:', logits.length);
+                
+                // Process probabilities with numerical stability
+                const maxLogit = Math.max(...logits);
+                const expLogits = logits.map(x => Math.exp(Math.min(x - maxLogit, 709))); // Prevent exp overflow
+                const sumExp = expLogits.reduce((a, b) => a + b, 0);
+                const probabilities = expLogits.map(x => x / sumExp);
+                
+                // Verify probabilities
+                const probabilitySum = probabilities.reduce((a, b) => a + b, 0);
+                if (Math.abs(probabilitySum - 1) > 1e-6) {
+                    console.warn('Probability sum error:', probabilitySum - 1);
+                }
+                
+                // Get legal moves
+                const legalMoves = new Set(game.moves({ verbose: true }).map(m => m.from + m.to + (m.promotion || '')));
+                console.log('Legal moves:', legalMoves);
+                
+                // Find best move
+                const indices = Array.from(logits.keys());
+                indices.sort((a, b) => probabilities[b] - probabilities[a]);
+                
+                let moveFound = false;
+                for (const idx of indices) {
+                    const move = moveMapping[idx];
+                    if (move && legalMoves.has(move)) {
+                        console.log('Selected move:', move, 'probability:', probabilities[idx]);
+                        
+                        // Execute move with validation
+                        const result = game.move({
+                            from: move.slice(0, 2),
+                            to: move.slice(2, 4),
+                            promotion: move.length === 5 ? move[4] : undefined
+                        });
+                        
+                        if (!result) {
+                            throw new Error(`Move ${move} failed to execute`);
+                        }
+                        
+                        $moveInfo.html(`AI played: ${formatMove(move)} (confidence: ${(probabilities[idx] * 100).toFixed(1)}%)`);
+                        moveFound = true;
+                        break;
+                    }
+                }
+                
+                if (!moveFound) {
+                    throw new Error('No legal moves found in model predictions');
+                }
+                
+                // Clean up
+                try {
+                    await session.handler.dispose();
+                    console.log('Session disposed');
+                } catch (e) {
+                    console.warn('Session disposal error:', e);
+                }
                 
                 board.position(game.fen());
                 updateStatus();
                 
             } catch (error) {
-                console.error('Error making AI move:', error);
+                console.error('AI move error:', error);
                 $status.html('Error making AI move: ' + error.message);
+                // Try to recover game state if move failed
+                try {
+                    game = new Chess(game.fen());
+                } catch (e) {
+                    console.error('State recovery failed:', e);
+                    newGame(); // Reset as last resort
+                }
             } finally {
                 $status.removeClass('thinking');
+                console.groupEnd();
             }
         }
-        
         function updateStatus() {
             let status = '';
             const $copyPgnBtn = $('#copy-pgn-btn');
