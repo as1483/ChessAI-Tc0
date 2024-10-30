@@ -39,11 +39,13 @@
         }
         
         #game-container {
+            position: relative;
             background-color: var(--container-bg);
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px var(--shadow-color);
             transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            transform: translate(-0%, 1%);
         }
         
         #board {
@@ -76,8 +78,8 @@
         
         #new-game-btn {
             padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
+            background-color: var(--status-bg);
+            color: var(--text-color);
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -137,79 +139,68 @@
             transition: color 0.3s ease;
         }
         #color-choice {
-            position: absolute;
-            top: 435px;
-            left: 50%;
-            transform: translate(-50%, -50%);
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             gap: 20px;
-            z-index: 1000;
-            background-color: var(--bg-color-rgb);
-            padding: 45px;
-            border-radius: 7px;
-            box-shadow: 0 4px 12px var(--shadow-color);
-            backdrop-filter: blur(0px); /* Control blur intensity */
-            
+            margin: 20px 0;
         }
 
         .color-btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            opacity: 1;
-            width: 150px;
-            text-align: center;
             position: relative;
-            overflow: hidden;
-            /* box-shadow: 0 4px 12px var(--shadow-color); */
-        }
-        .color-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transform: translateX(-100%);
-            transition: transform 0.6s ease;
-        }
-        .color-btn:hover::before {
-            transform: translateX(100%);
+            width: 80px;
+            height: 80px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .color-btn:hover {
-            opacity: 1;
-            /* transform: translateY(-1px); */
+            border-color: #666;
+            transform: translateY(-2px);
         }
 
-        /* .color-btn.selected {
-            opacity: 1;
-            transform: scale(1);
-            box-shadow: 0 4px 8px var(--shadow-color);
-            border: 2px solid #ac0000;
-        } */
-
-        #white-btn {
-            background-color: rgb(122, 125, 133);
-            color: #ffffff;
-            border: 2px solid #e6e6e6;
+        .color-btn.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
         }
 
-        #black-btn {
-            background-color: #333333;
-            color: #ffffff;
-            border: 2px solid #000000;
+        .color-btn img {
+            width: 60px;
+            height: 60px;
+            transition: transform 0.3s ease;
+        }
+
+        .color-btn:hover img {
+            transform: scale(1.1);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         /* Hide color choice during game */
         .game-started #color-choice {
             display: none;
         }
+        .ngcontainer {
+            display: flex;
+            justify-content: center; /* Center horizontally */
+        }
+
         #new-game-btn {
             display: none; /* Hidden by default */
         }
@@ -217,6 +208,7 @@
         .game-started #new-game-btn {
             display: inline-block; /* Show only when game has started */
         }
+        
         /* Dark mode specific overrides for chess pieces */
         /* [data-theme="dark"] .white-1e1d7 {
             background-color: #b0b0b0;
@@ -239,21 +231,60 @@
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+        .title-container {
+            display: none;          
+            align-items: center;
+            font-size: 0.5em;
+
+        }
+
+        .title-badge {
+            display: inline-block;
+            background-color: #9c2826; /* Red background */
+            color: white;              /* White text */
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 1em;
+            font-weight: bold;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+
     </style>
 </head>
 <body>
     <button id="theme-toggle">Toggle Dark Mode</button>
     <div id="game-container">
-        <h1>Challenge AI</h1>
+        <h1 style="text-align: center;">Chess AI</h1>
+        
         <div id="color-choice">
-            <button id="white-btn" class="color-btn">Play White</button>
-            <button id="black-btn" class="color-btn">Play Black</button>
+            <button id="white-btn" class="color-btn" aria-label="Play as White">
+                <img src="https://chessboardjs.com/img/chesspieces/wikipedia/wK.png" alt="White King">
+                <span class="sr-only">Play as White</span>
+            </button>
+            <button id="black-btn" class="color-btn" aria-label="Play as Black">
+                <img src="https://chessboardjs.com/img/chesspieces/wikipedia/bK.png" alt="Black King">
+                <span class="sr-only">Play as Black</span>
+            </button>
         </div>
         <div id="status">Choose your color to start</div>
+        
+        <div class="title-container">
+            <span class="title-badge">GM</span>
+            <h1 style="margin: 0;">Tc0 (3000)</h1>
+
+        </div>    
         <!-- <div id="move-info"></div> -->
         <div id="board"></div>
-        <button id="new-game-btn">New Game</button>
-        <button id="copy-pgn-btn">Copy PGN</button>
+        <div class="title-container">
+            <span class="title-badge">GM</span>
+            <h1 style="margin: 0;">You (400)</h1>
+
+        </div>  
+        
+        <div class="ngcontainer">
+            <button id="new-game-btn">New Game</button>
+        </div>        <button id="copy-pgn-btn">Copy PGN</button>
         <div id="pgn-copied">PGN copied to clipboard!</div>
     </div>
 
@@ -272,7 +303,8 @@
         let gameStarted = false;
         const $status = $('#status');
         const $moveInfo = $('#move-info');
-        
+        let movementInterval = null;
+
         // Color selection functionality
         const $whiteBtn = $('#white-btn');
         const $blackBtn = $('#black-btn');
@@ -285,9 +317,10 @@
             if (gameStarted) return;
             
             playerColor = color;
+            
             $whiteBtn.toggleClass('selected', color === 'w');
             $blackBtn.toggleClass('selected', color === 'b');
-            
+            stopCircularKingMovement()
             startNewGame();
         }
         
@@ -312,6 +345,7 @@
         $('#new-game-btn').on('click', newGame);
         $('#copy-pgn-btn').on('click', copyPGN);
         function startNewGame() {
+            stopCircularKingMovement()
             game = new Chess();
             gameStarted = true;
             $gameContainer.addClass('game-started');
@@ -788,17 +822,57 @@
             
             document.body.removeChild(textArea);
         }
+        function startCircularKingMovement() {
+            stopCircularKingMovement()
+            const whiteKingPath = ['f3', 'f4', 'f5', 'f6', 'e6', 'd6', 'c6', 'c5', 'c4','c3', 'd3', 'e3'];
+            const blackKingPath = ['c6', 'c5', 'c4', 'c3', 'd3', 'e3', 'f3', 'f4', 'f5', 'f6', 'e6', 'd6'];
+            
+            let whiteIndex = 0;
+            let blackIndex = 0;
+
+            // Start the interval and save its ID to movementInterval
+            movementInterval = setInterval(() => {
+                // Update the kings' positions
+                board.position({
+                    [whiteKingPath[whiteIndex]]: 'wK',
+                    [blackKingPath[blackIndex]]: 'bK'
+                });
+                
+                // Advance indices in circular path
+                whiteIndex = (whiteIndex + 1) % whiteKingPath.length;
+                blackIndex = (blackIndex + 1) % blackKingPath.length;
+            }, 900); // Adjust time as needed
+        }
+        function stopCircularKingMovement() {
+            // Clear the interval if it’s running
+            if (movementInterval) {
+                clearInterval(movementInterval);
+                movementInterval = null; // Reset the variable
+            }
+        }
         function newGame() {
+            stopCircularKingMovement()
+            board.position({})
+            board.position({
+                e3: 'wK', // White king at e1
+                d6: 'bK'  // Black king at e8
+            });
+           
+
             gameStarted = false;
+            const $copyPgnBtn = $('#copy-pgn-btn');
+            $copyPgnBtn.css('display', 'none');
             $gameContainer.removeClass('game-started');
             game = new Chess();
             // if (board) {
             //     board.destroy();
             // }
             //board = Chessboard('board', config);
-            board = null;
+            //board.position({})
+            
             $moveInfo.html('');
             $status.html('Choose your color to start');
+            startCircularKingMovement()
         }
         // Add theme toggle functionality
         const themeToggle = document.getElementById('theme-toggle');
