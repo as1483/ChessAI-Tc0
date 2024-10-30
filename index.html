@@ -12,7 +12,7 @@
             --text-color: #000000;
             --status-bg: #e8e8e8;
             --move-info-bg: #f8f9fa;
-            --shadow-color: rgba(0,0,0,0.1);
+            --shadow-color: rgba(0,0,0,0.2);
             --board-border: #d3d3d3;
         }
 
@@ -23,7 +23,7 @@
             --text-color: #ffffff;
             --status-bg: #3d3d3d;
             --move-info-bg: #404040;
-            --shadow-color: rgba(0,0,0,0.1);
+            --shadow-color: rgba(0,0,0,0.2);
             --board-border: #404040;
         }
 
@@ -146,23 +146,26 @@
             gap: 20px;
             z-index: 1000;
             background-color: var(--bg-color-rgb);
-            padding: 40px;
-            border-radius: 10px;
+            padding: 45px;
+            border-radius: 7px;
             box-shadow: 0 4px 12px var(--shadow-color);
+            backdrop-filter: blur(0px); /* Control blur intensity */
+            
         }
 
         .color-btn {
-            padding: 13px 26px;
+            padding: 10px 20px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             transition: all 0.3s ease;
             opacity: 1;
-            width: 195px;
+            width: 150px;
             text-align: center;
             position: relative;
             overflow: hidden;
+            /* box-shadow: 0 4px 12px var(--shadow-color); */
         }
         .color-btn::before {
             content: '';
@@ -192,14 +195,14 @@
         } */
 
         #white-btn {
-            background-color: #8e9198;
+            background-color: rgb(122, 125, 133);
             color: #ffffff;
-            border: 2px solid #cccccc;
+            border: 2px solid #e6e6e6;
         }
 
         #black-btn {
-            background-color: #1c1c1c;
-            color: #e4e4e4;
+            background-color: #333333;
+            color: #ffffff;
             border: 2px solid #000000;
         }
 
@@ -241,7 +244,7 @@
 <body>
     <button id="theme-toggle">Toggle Dark Mode</button>
     <div id="game-container">
-        <h1>Play Tc0</h1>
+        <h1>Challenge AI</h1>
         <div id="color-choice">
             <button id="white-btn" class="color-btn">Play White</button>
             <button id="black-btn" class="color-btn">Play Black</button>
@@ -712,7 +715,7 @@
                 
             } catch (error) {
                 console.error('AI move error:', error);
-                $status.html('Error making AI move: ' + error.message);
+                $status.html('Choose your color to start');
                 // Try to recover game state if move failed
                 try {
                     game = new Chess(game.fen());
@@ -738,7 +741,7 @@
                 status = 'Game over, drawn position';
             } else {
                 const isPlayerTurn = game.turn() === playerColor;
-                status = isPlayerTurn ? 'Your turn' : "AI's turn";
+                status = isPlayerTurn ? 'Your turn' : " Tc0 is thinking...";
                 if (game.isCheck()) {
                     status += `, ${isPlayerTurn ? 'You are' : 'AI is'} in check`;
                 }
@@ -803,7 +806,7 @@
         // Check for saved theme preference
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
-        themeToggle.textContent = `Toggle ${savedTheme === 'light' ? 'Dark' : 'Light'} Mode`;
+        themeToggle.textContent = `${savedTheme === 'light' ? 'Dark' : 'Light'} Mode`;
 
         themeToggle.addEventListener('click', () => {
             const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -814,7 +817,7 @@
             localStorage.setItem('theme', newTheme);
             
             // Update button text
-            themeToggle.textContent = `Toggle ${newTheme === 'light' ? 'Dark' : 'Light'} Mode`;
+            themeToggle.textContent = `${newTheme === 'light' ? 'Dark' : 'Light'} Mode`;
             
             // Force board redraw to update square colors
             if (board) {
