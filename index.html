@@ -7,6 +7,7 @@
         /* Theme variables for light/dark mode */
         :root[data-theme="light"] {
             --bg-color: #f0f0f0;
+            --bg-color-rgb: 26, 26, 26;
             --container-bg: white;
             --text-color: #000000;
             --status-bg: #e8e8e8;
@@ -17,6 +18,7 @@
 
         :root[data-theme="dark"] {
             --bg-color: #1a1a1a;
+            --bg-color-rgb: 26, 26, 26;
             --container-bg: #2d2d2d;
             --text-color: #ffffff;
             --status-bg: #3d3d3d;
@@ -45,8 +47,9 @@
         }
         
         #board {
+            position: relative;
             width: 500px;
-            margin: 20px 0;
+            margin: 20px auto;
         }
         
         #status {
@@ -57,7 +60,10 @@
             text-align: center;
             transition: background-color 0.3s ease;
         }
-        
+        /* Ensure the board squares don't overlap the buttons */
+        .board-container {
+            position: relative;
+        }
         #move-info {
             margin: 10px 0;
             padding: 10px;
@@ -130,7 +136,84 @@
             font-size: 14px;
             transition: color 0.3s ease;
         }
+        #color-choice {
+            position: absolute;
+            top: 435px;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 1000;
+            background-color: rgba(var(--bg-color-rgb), 0.76);
+            padding: 50px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
 
+        .color-btn {
+            padding: 13px 26px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            opacity: 1;
+            width: 195px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .color-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        .color-btn:hover::before {
+            transform: translateX(100%);
+        }
+
+        .color-btn:hover {
+            opacity: 1;
+            /* transform: translateY(-1px); */
+        }
+
+        /* .color-btn.selected {
+            opacity: 1;
+            transform: scale(1);
+            box-shadow: 0 4px 8px var(--shadow-color);
+            border: 2px solid #ac0000;
+        } */
+
+        #white-btn {
+            background-color: #8e9198;
+            color: #ffffff;
+            border: 2px solid #e7e7e7;
+        }
+
+        #black-btn {
+            background-color: #1c1c1c;
+            color: #e4e4e4;
+            border: 2px solid #000000;
+        }
+
+        /* Hide color choice during game */
+        .game-started #color-choice {
+            display: none;
+        }
+        #new-game-btn {
+            display: none; /* Hidden by default */
+        }
+        
+        .game-started #new-game-btn {
+            display: inline-block; /* Show only when game has started */
+        }
         /* Dark mode specific overrides for chess pieces */
         /* [data-theme="dark"] .white-1e1d7 {
             background-color: #b0b0b0;
@@ -139,7 +222,15 @@
         [data-theme="dark"] .black-3c85d {
             background-color: #404040;
         } */
+        /* Add fade animation for the overlay */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
+        #color-choice {
+            animation: fadeIn 0s ease-in-out;
+        }
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -151,8 +242,12 @@
     <button id="theme-toggle">Toggle Dark Mode</button>
     <div id="game-container">
         <h1>Play AI</h1>
-        <div id="status">Your turn! Play as White</div>
-        <div id="move-info"></div>
+        <div id="color-choice">
+            <button id="white-btn" class="color-btn selected">Play as White</button>
+            <button id="black-btn" class="color-btn">Play as Black</button>
+        </div>
+        <div id="status">Choose your color to start</div>
+        <!-- <div id="move-info"></div> -->
         <div id="board"></div>
         <button id="new-game-btn">New Game</button>
         <button id="copy-pgn-btn">Copy PGN</button>
@@ -170,8 +265,28 @@
         let board = null;
         let game = new Chess();
         let moveMapping = null;
+        let playerColor = 'w';
+        let gameStarted = false;
         const $status = $('#status');
         const $moveInfo = $('#move-info');
+        
+        // Color selection functionality
+        const $whiteBtn = $('#white-btn');
+        const $blackBtn = $('#black-btn');
+        const $gameContainer = $('#game-container');
+
+        $whiteBtn.on('click', () => selectColor('w'));
+        $blackBtn.on('click', () => selectColor('b'));
+
+        function selectColor(color) {
+            if (gameStarted) return;
+            
+            playerColor = color;
+            $whiteBtn.toggleClass('selected', color === 'w');
+            $blackBtn.toggleClass('selected', color === 'b');
+            
+            startNewGame();
+        }
         
         // Load move mapping JSON
         async function loadMoveMapping() {
@@ -190,24 +305,53 @@
 
         // Load move mapping when page loads
         await loadMoveMapping();
+        // Add event listeners
+        $('#new-game-btn').on('click', newGame);
+        $('#copy-pgn-btn').on('click', copyPGN);
+        function startNewGame() {
+            game = new Chess();
+            gameStarted = true;
+            $gameContainer.addClass('game-started');
+            
+            const config = {
+                draggable: true,
+                position: 'start',
+                orientation: playerColor === 'w' ? 'white' : 'black',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+            };
+            
+            if (board) {
+                board.destroy();
+            }
+            board = Chessboard('board', config);
+            updateStatus();
+
+            // If playing as black, trigger AI's first move
+            if (playerColor === 'b') {
+                setTimeout(makeAIMove, 250);
+            }
+        }
 
         function onDragStart(source, piece, position, orientation) {
             if (game.isGameOver()) return false;
-            if (piece.search(/^b/) !== -1) return false;
-            if (game.turn() === 'b') return false;
+            
+            // Only allow player to move their own pieces
+            if (piece.search(playerColor === 'w' ? /^b/ : /^w/) !== -1) return false;
+            
+            // Only allow moves on player's turn
+            if (game.turn() !== playerColor) return false;
         }
         
+        // Modified onDrop to handle both colors
         function onDrop(source, target) {
-            // Get legal moves from the source square
             const legalMoves = game.moves({ square: source, verbose: true });
-            
-            // Check if the target square is a legal move from the source square
             const isLegalMove = legalMoves.some(move => move.to === target);
             
-            // If the target square is not a legal move, return 'snapback'
             if (!isLegalMove) return 'snapback';
             
-            // Make the move if it's legal
             const move = game.move({
                 from: source,
                 to: target,
@@ -581,25 +725,26 @@
                 console.groupEnd();
             }
         }
+        // Modified updateStatus to handle both colors
         function updateStatus() {
             let status = '';
             const $copyPgnBtn = $('#copy-pgn-btn');
             const isGameOver = game.isGameOver();
             
             if (game.isCheckmate()) {
-                status = 'Game over, ' + (game.turn() === 'w' ? 'black' : 'white') + ' wins by checkmate!';
+                const winner = game.turn() === 'w' ? 'Black' : 'White';
+                status = `Game over, ${winner} wins by checkmate!`;
             } else if (game.isDraw()) {
                 status = 'Game over, drawn position';
             } else {
-                status = (game.turn() === 'w' ? 'Your turn' : "AI's turn");
+                const isPlayerTurn = game.turn() === playerColor;
+                status = isPlayerTurn ? 'Your turn' : "AI's turn";
                 if (game.isCheck()) {
-                    status += ', ' + (game.turn() === 'w' ? 'You are' : 'AI is') + ' in check';
+                    status += `, ${isPlayerTurn ? 'You are' : 'AI is'} in check`;
                 }
             }
             
             $status.html(status);
-            
-            // Show/hide PGN button based on game state
             $copyPgnBtn.css('display', isGameOver ? 'inline-block' : 'none');
         }
         function copyPGN() {
@@ -641,10 +786,16 @@
             document.body.removeChild(textArea);
         }
         function newGame() {
+            gameStarted = false;
+            $gameContainer.removeClass('game-started');
             game = new Chess();
-            board.position('start');
+            // if (board) {
+            //     board.destroy();
+            // }
+            //board = Chessboard('board', config);
+            board = null;
             $moveInfo.html('');
-            updateStatus();
+            $status.html('Choose your color to start');
         }
         // Add theme toggle functionality
         const themeToggle = document.getElementById('theme-toggle');
@@ -690,7 +841,7 @@
         
         // Create the board
         board = Chessboard('board', config);
-        updateStatus();
+        newGame();
 
         // Add event listener for new game button
         document.getElementById('new-game-btn').addEventListener('click', newGame);
