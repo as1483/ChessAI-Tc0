@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html data-theme="light">
+<html data-theme="dark">
 <head>
     <title>Play Chess AI Tc0</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
     <style>
         /* Theme variables for light/dark mode */
         :root[data-theme="light"] {
-            --bg-color: #f0f0f0;
-            --bg-color-rgb: 26, 26, 26;
+            --bg-color: #f0f0f044;
+            --bg-color-rgb: #000000ad;
             --container-bg: white;
             --text-color: #000000;
             --status-bg: #e8e8e8;
@@ -18,12 +18,12 @@
 
         :root[data-theme="dark"] {
             --bg-color: #1a1a1a;
-            --bg-color-rgb: 26, 26, 26;
+            --bg-color-rgb: #000000ad;
             --container-bg: #2d2d2d;
             --text-color: #ffffff;
             --status-bg: #3d3d3d;
             --move-info-bg: #404040;
-            --shadow-color: rgba(0,0,0,0.3);
+            --shadow-color: rgba(0,0,0,0.1);
             --board-border: #404040;
         }
 
@@ -145,8 +145,8 @@
             flex-direction: column;
             gap: 20px;
             z-index: 1000;
-            background-color: rgba(var(--bg-color-rgb), 0.76);
-            padding: 50px;
+            background-color: var(--bg-color-rgb);
+            padding: 40px;
             border-radius: 10px;
             box-shadow: 0 4px 12px var(--shadow-color);
         }
@@ -154,7 +154,7 @@
         .color-btn {
             padding: 13px 26px;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 18px;
             transition: all 0.3s ease;
@@ -194,7 +194,7 @@
         #white-btn {
             background-color: #8e9198;
             color: #ffffff;
-            border: 2px solid #e7e7e7;
+            border: 2px solid #cccccc;
         }
 
         #black-btn {
@@ -241,10 +241,10 @@
 <body>
     <button id="theme-toggle">Toggle Dark Mode</button>
     <div id="game-container">
-        <h1>Play AI</h1>
+        <h1>Play Tc0</h1>
         <div id="color-choice">
-            <button id="white-btn" class="color-btn selected">Play as White</button>
-            <button id="black-btn" class="color-btn">Play as Black</button>
+            <button id="white-btn" class="color-btn">Play White</button>
+            <button id="black-btn" class="color-btn">Play Black</button>
         </div>
         <div id="status">Choose your color to start</div>
         <!-- <div id="move-info"></div> -->
@@ -600,7 +600,7 @@
             if (game.isGameOver()) return;
 
             try {
-                $status.html('AI is thinking...').addClass('thinking');
+                $status.html('Tc0 is thinking...').addClass('thinking');
                 
                 // Debug current game state and memory
                 console.group('AI Move Debug');
