@@ -14,6 +14,7 @@
             --move-info-bg: #f8f9fa;
             --shadow-color: rgba(0,0,0,0.2);
             --board-border: #d3d3d3;
+            --theme-toggle-bg: #dbdbdb;
         }
 
         :root[data-theme="dark"] {
@@ -25,6 +26,7 @@
             --move-info-bg: #404040;
             --shadow-color: rgba(0,0,0,0.2);
             --board-border: #404040;
+            --theme-toggle-bg: #4d4d4d;
         }
 
         body {
@@ -88,7 +90,10 @@
         }
         
         #new-game-btn:hover {
-            background-color: #45a049;
+            background-color: #43A047;
+            /* border-color: #69e56d; */
+            box-shadow: 0 0 3px #275f2a;
+            
         }
 
         #theme-toggle {
@@ -96,8 +101,8 @@
             top: 20px;
             right: 20px;
             padding: 10px 20px;
-            background-color: #2196F3;
-            color: white;
+            background-color:var(--status-bg);
+            color: var(--text-color);
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -107,7 +112,9 @@
         }
 
         #theme-toggle:hover {
-            background-color: #1976D2;
+            background-color: var(--theme-toggle-bg);
+            border-color: var(--bg-color);
+            box-shadow: 0 0 10px var(--bg-color);
         }
 
         .thinking {
@@ -116,8 +123,8 @@
 
         #copy-pgn-btn {
             padding: 10px 20px;
-            background-color: #2196F3;
-            color: white;
+            background-color:var(--status-bg);
+            color: var(--text-color);
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -196,19 +203,25 @@
         .game-started #color-choice {
             display: none;
         }
+
         .ngcontainer {
             display: flex;
             justify-content: center; /* Center horizontally */
         }
 
         #new-game-btn {
-            display: none; /* Hidden by default */
+            display: none; 
         }
         
         .game-started #new-game-btn {
-            display: inline-block; /* Show only when game has started */
+            display: inline-block;
         }
-        
+
+        /*Show the usernames and GM tag*/
+        /* .game-started #titlecontainer {
+            display: flex; 
+        } */
+
         /* Dark mode specific overrides for chess pieces */
         /* [data-theme="dark"] .white-1e1d7 {
             background-color: #b0b0b0;
@@ -217,6 +230,7 @@
         [data-theme="dark"] .black-3c85d {
             background-color: #404040;
         } */
+
         /* Add fade animation for the overlay */
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -244,18 +258,22 @@
             color: white;              /* White text */
             padding: 2px 5px;
             border-radius: 3px;
-            font-size: 1em;
+            font-size: 1.4em;
             font-weight: bold;
             vertical-align: middle;
-            margin-right: 5px;
-        }
+            margin-right: 6px;
+            margin-top: 1px;
 
+        }
+        .no-scroll {
+            touch-action: none;
+        }
     </style>
 </head>
 <body>
     <button id="theme-toggle">Toggle Dark Mode</button>
     <div id="game-container">
-        <h1 style="text-align: center;">Chess AI</h1>
+        <h1 style="text-align: center;">Theta Chess Zero</h1>
         
         <div id="color-choice">
             <button id="white-btn" class="color-btn" aria-label="Play as White">
@@ -269,22 +287,26 @@
         </div>
         <div id="status">Choose your color to start</div>
         
-        <div class="title-container">
-            <span class="title-badge">GM</span>
-            <h1 style="margin: 0;">Tc0 (3000)</h1>
+        <div class="title-container" id="titlecontainer">
+            <span class="title-badge">GM </span>
+            <h1 style="margin: 0;">Tc0 (1300)</h1>
 
         </div>    
         <!-- <div id="move-info"></div> -->
-        <div id="board"></div>
-        <div class="title-container">
-            <span class="title-badge">GM</span>
+        <div id="board" class="no-scroll"></div>
+        <div class="title-container" id="titlecontainer">
+            <!-- <span class="title-badge">GM</span> -->
             <h1 style="margin: 0;">You (400)</h1>
 
         </div>  
-        
+        <div>
+
+            <button id="copy-pgn-btn">Copy PGN</button>
+        </div>        
+
         <div class="ngcontainer">
             <button id="new-game-btn">New Game</button>
-        </div>        <button id="copy-pgn-btn">Copy PGN</button>
+        </div>        
         <div id="pgn-copied">PGN copied to clipboard!</div>
     </div>
 
@@ -397,7 +419,7 @@
             
             if (move === null) return 'snapback';
             
-            board.position(game.fen());
+            // board.position(game.fen());
             updateStatus();
             
             // After player's move, trigger AI move
